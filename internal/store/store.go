@@ -73,7 +73,7 @@ func (m *Memory) Advance(key string, version int, p Phase, job int) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	r, ok := m.records[key]
-	if !ok || r.Version != version || r.Owner < 0 || p < r.Phase {
+	if !ok || r.Version != version || r.Owner < 0 || p < r.Phase || p > r.Phase+1 {
 		return false
 	}
 	if p == Committed && r.Phase != EffectWritten {

@@ -58,6 +58,8 @@ func Run(cfg Config) (Result, error) {
 	switch cfg.Strategy {
 	case "at-least-once":
 		agent = &strategy.AtLeastOnce{R: r}
+	case "exactly-once":
+		agent = &strategy.ExactlyOnce{R: r}
 	case "naive":
 		agent = &strategy.Naive{R: r}
 	default:
