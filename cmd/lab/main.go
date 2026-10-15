@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/kevinmamaqi/agent-dispatch-lab/internal/report"
 	"github.com/kevinmamaqi/agent-dispatch-lab/internal/sim"
 	"os"
-	"text/tabwriter"
 )
 
 func main() {
@@ -15,6 +15,10 @@ func main() {
 	}
 }
 func run(args []string) error {
+	reportMode := len(args) > 0 && args[0] == "report"
+	if reportMode {
+		args = args[1:]
+	}
 	fs := flag.NewFlagSet("lab", flag.ContinueOnError)
 	runs := fs.Int("runs", 1000, "agent runs per cell")
 	seed := fs.Int64("seed", 42, "deterministic seed")
@@ -32,30 +36,20 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	previous := ""
-	for _, r := range rows {
-		if r.Scenario != previous {
-			description := ""
-			for _, s := range sim.Scenarios() {
-				if s.Name == r.Scenario {
-					description = s.Description
-				}
-			}
-			fmt.Printf("\nscenario: %s (%s) runs=%d seed=%d workers=%d\n", r.Scenario, description, r.Runs, r.Seed, r.Workers)
-			previous = r.Scenario
+	if reportMode {
+		if err := report.Write("report", rows); err != nil {
+			return err
 		}
-		printRow(r)
-		if *verbose {
+		fmt.Println("Wrote report/results.{md,json,svg} and results-dark.svg; refreshed README measured blocks.")
+	}
+	report.Terminal(os.Stdout, rows)
+	if *verbose {
+		for _, r := range rows {
+			fmt.Printf("\n%s / %s evidence:\n", r.Scenario, r.Strategy)
 			for _, line := range r.Evidence {
 				fmt.Println(line)
 			}
 		}
 	}
 	return nil
-}
-func printRow(r sim.Result) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "strategy\tcompleted\tlost\tdup-effects\tdouble-billed\twasted-calls\tabandoned\tp50\tp99")
-	fmt.Fprintf(w, "%s\t%.1f%%\t%d\t%d\t%d\t%d\t%d\t%.2fs\t%.2fs\n", r.Strategy, 100*float64(r.Completed)/float64(r.Runs), r.Lost, r.DuplicateEffects, r.DoubleBilled, r.WastedCalls, r.DrainAbandoned, float64(r.P50MS)/1000, float64(r.P99MS)/1000)
-	w.Flush()
 }
