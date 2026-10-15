@@ -56,6 +56,8 @@ func Run(cfg Config) (Result, error) {
 		Timeout: 2 * time.Second, DrainBudget: 150 * time.Millisecond, Retries: 4, Active: map[int]*strategy.Work{}}
 	var agent strategy.Strategy
 	switch cfg.Strategy {
+	case "at-least-once":
+		agent = &strategy.AtLeastOnce{R: r}
 	case "naive":
 		agent = &strategy.Naive{R: r}
 	default:
