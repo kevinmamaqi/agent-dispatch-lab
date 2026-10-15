@@ -11,6 +11,7 @@ import (
 	"github.com/kevinmamaqi/agent-dispatch-lab/internal/store"
 	"github.com/kevinmamaqi/agent-dispatch-lab/internal/workload"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -30,6 +31,8 @@ type Work struct {
 	Retry    func(time.Duration)
 }
 type Runtime struct {
+	mu                   sync.Mutex
+	OnBilled             func(workload.Step)
 	Clock                *clock.Clock
 	Queue                *queue.Queue
 	Provider             *provider.Provider
@@ -54,12 +57,15 @@ func (r *Runtime) Trace(s workload.Step, what, cause string) {
 	r.Evidence = append(r.Evidence, fmt.Sprintf("%-16s run=%s step=%s key=%s attempt=%d (%s at t=%s)", what, s.RunID, s.ID, s.Key(), s.Attempt, cause, r.Clock.Now))
 }
 func (r *Runtime) Finish(s workload.Step) {
+	r.mu.Lock()
 	w := r.Active[s.Receipt]
 	if w == nil || w.Finished {
+		r.mu.Unlock()
 		return
 	}
 	w.Finished = true
 	delete(r.Active, s.Receipt)
+	r.mu.Unlock()
 	if r.OnFree != nil {
 		r.OnFree(s)
 	}
@@ -181,4 +187,32 @@ func (r *Runtime) Drain(abandon bool) {
 			r.Queue.Wake()
 		}
 	})
+}
+
+func (r *Runtime) SetRetry(s workload.Step, f func(time.Duration)) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.Active[s.Receipt].Retry = f
+}
+func (r *Runtime) Apply(s workload.Step, unique, late bool) bool {
+	before := r.Ledger.Count(s)
+	if !r.Ledger.Apply(s, unique) {
+		return false
+	}
+	after := r.Ledger.Count(s)
+	if s.Kind == "bill" && before == 0 && after > 0 && r.OnBilled != nil {
+		r.OnBilled(s)
+	}
+	if after > before && after > 1 {
+		label := fmt.Sprintf("dup effect attempts=%d", after)
+		if s.Kind == "bill" {
+			label = fmt.Sprintf("double bill writes=%d", after)
+		}
+		cause := "dup-delivery/retry"
+		if late {
+			cause = "late completion after timeout"
+		}
+		r.Trace(s, label, cause)
+	}
+	return true
 }

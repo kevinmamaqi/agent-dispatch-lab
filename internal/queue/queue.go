@@ -4,10 +4,12 @@ package queue
 import (
 	"github.com/kevinmamaqi/agent-dispatch-lab/internal/clock"
 	"github.com/kevinmamaqi/agent-dispatch-lab/internal/workload"
+	"sync"
 	"time"
 )
 
 type Queue struct {
+	mu       sync.Mutex
 	Clock    *clock.Clock
 	ready    []workload.Step
 	receipts map[int]workload.Step
@@ -35,7 +37,7 @@ func (q *Queue) Receive() (workload.Step, bool) {
 	q.receipts[s.Receipt] = s
 	return s, true
 }
-func (q *Queue) Ack(receipt int) { delete(q.receipts, receipt) }
+func (q *Queue) Ack(receipt int) { q.mu.Lock(); defer q.mu.Unlock(); delete(q.receipts, receipt) }
 func (q *Queue) Return(s workload.Step, version int, delay time.Duration) {
 	if _, ok := q.receipts[s.Receipt]; !ok {
 		return

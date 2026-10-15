@@ -52,7 +52,7 @@ func (m *Memory) Claim(s workload.Step, now, lease time.Duration) (Record, bool)
 	defer m.mu.Unlock()
 	r, exists := m.records[s.Key()]
 	if !exists {
-		r = Record{Step: s, Version: s.Attempt, Owner: -1}
+		r = Record{Step: s, Version: 0, Owner: -1}
 	}
 	if r.Phase == Committed || s.Attempt != r.Version {
 		return r, false
@@ -128,4 +128,13 @@ func (m *Memory) Apply(s workload.Step, unique bool) bool {
 	}
 	ledger[key]++
 	return true
+}
+
+func (m *Memory) Count(s workload.Step) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if s.Kind == "bill" {
+		return m.Bills[s.RunID]
+	}
+	return m.Effects[s.Key()]
 }

@@ -76,15 +76,14 @@ func Run(cfg Config) (Result, error) {
 			r.Trace(s, "duplicate queued", "dup-delivery")
 		}
 	}
+	r.OnBilled = func(s workload.Step) { completed[s.RunID] = c.Now }
 	r.OnDone = func(s workload.Step, job int) {
 		if done[s.Key()] {
 			return
 		}
 		done[s.Key()] = true
 		p.Use(job)
-		if s.Kind == "bill" {
-			completed[s.RunID] = c.Now
-		}
+
 		for _, next := range workload.Next(cfg.Seed, s, done) {
 			if !scheduled[next.Key()] {
 				scheduled[next.Key()] = true
@@ -118,7 +117,11 @@ func Run(cfg Config) (Result, error) {
 		enqueue(s)
 	}
 	if cfg.DrainAt > 0 {
-		c.After(cfg.DrainAt, func() { _ = agent.OnDrain(context.Background()) })
+		c.After(cfg.DrainAt, func() {
+			if r.Decision(workload.Step{}, "drain").Drain {
+				_ = agent.OnDrain(context.Background())
+			}
+		})
 	}
 	if err := c.Run(); err != nil {
 		return out, err
@@ -150,6 +153,12 @@ func Run(cfg Config) (Result, error) {
 	out.ProviderCalls, out.WastedCalls = p.Counts()
 	out.DrainAbandoned = r.DrainAbandoned
 	out.BatchMS = c.Now.Milliseconds()
+	for i := 0; i < cfg.Runs; i++ {
+		id := fmt.Sprintf("r%04d", i)
+		if _, ok := completed[id]; !ok {
+			r.Trace(workload.Step{RunID: id, ID: "bill"}, "lost run", "no pending work")
+		}
+	}
 	out.Evidence = r.Evidence
 	return out, nil
 }

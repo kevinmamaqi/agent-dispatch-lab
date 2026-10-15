@@ -14,7 +14,7 @@ func (n *Naive) Dispatch(ctx context.Context, s workload.Step) error {
 		return err
 	}
 	r := n.R
-	r.Invoke(s, func(late bool) bool { return r.Ledger.Apply(s, false) }, func(j provider.Job, err error) {
+	r.Invoke(s, func(late bool) bool { return r.Apply(s, false, late) }, func(j provider.Job, err error) {
 		if err != nil {
 			r.Ack(s)
 			return
