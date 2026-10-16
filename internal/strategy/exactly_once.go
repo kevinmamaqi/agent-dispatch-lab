@@ -52,6 +52,9 @@ func (e *ExactlyOnce) Dispatch(ctx context.Context, s workload.Step) error {
 	// reads the result cache. An unfinished/failed call can still require retry;
 	// exactly-once effects do not imply exactly-once provider computation.
 	r.Log.Advance(s.Key(), s.Attempt, store.ProviderCalled, record.JobID)
+	// Apply enforces effect-key uniqueness; billing also requires every
+	// predecessor to be committed. A crash between Apply and Advance is safe:
+	// recovery repeats the keyed write, then persists the missing transition.
 	apply := func(late bool) bool {
 		if !r.Apply(s, true, late) {
 			return false

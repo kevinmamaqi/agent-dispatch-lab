@@ -69,6 +69,9 @@ func Run(cfg Config) (Result, error) {
 	scheduled := map[string]bool{}
 	completed := map[string]time.Duration{}
 	enqueue := func(s workload.Step) {
+		if cfg.Strategy == "exactly-once" {
+			ledger.Prepare(s)
+		}
 		q.Put(s, 0)
 		d := r.Decision(s, "enqueue")
 		if d.Duplicate {

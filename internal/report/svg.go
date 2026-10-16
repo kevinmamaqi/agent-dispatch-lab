@@ -48,8 +48,8 @@ func SVG(rows []sim.Result, dark bool) string {
 					}
 				}
 				x := 112 + c*194
-				yy := y + j*13
-				fmt.Fprintf(&b, `<text x="%d" y="%d" font-size="12">%s</text>`, x, yy+8, labels[j])
+				yy := y + j*14
+				fmt.Fprintf(&b, `<text x="%d" y="%d" font-size="14">%s</text>`, x, yy+8, labels[j])
 				width := float64(count) * 96 / float64(maxima[c])
 				barX := x + 39
 				if count == 0 {
@@ -57,7 +57,7 @@ func SVG(rows []sim.Result, dark bool) string {
 				} else {
 					fmt.Fprintf(&b, `<rect x="%d" y="%d" width="%.2f" height="5" fill="%s"/>`, barX, yy+2, width, colors[j])
 				}
-				fmt.Fprintf(&b, `<text x="%d" y="%d" font-size="12">%d</text>`, x+143, yy+8, count)
+				fmt.Fprintf(&b, `<text x="%d" y="%d" font-size="14">%d</text>`, x+143, yy+8, count)
 			}
 		}
 	}

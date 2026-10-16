@@ -30,7 +30,7 @@ func Unit(seed int64, key string, attempt int, purpose string) float64 {
 	x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9
 	x = (x ^ (x >> 27)) * 0x94d049bb133111eb
 	x ^= x >> 31
-	return (float64(x>>11) + 0.5) / (1 << 53)
+	return (float64(x>>12) + 0.5) / (1 << 52)
 }
 
 func Tools(seed int64, run string) int {

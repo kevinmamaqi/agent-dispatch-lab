@@ -80,6 +80,11 @@ func Narratives(rows []sim.Result) map[string]string {
 }
 
 func Write(dir string, rows []sim.Result) error {
+	for _, r := range rows {
+		if r.Strategy == "exactly-once" && (r.Completed != r.Runs || r.Lost+r.DuplicateEffects+r.DoubleBilled+r.DrainAbandoned != 0) {
+			return fmt.Errorf("exactly-once invariant failed in %s; refusing a success claim", r.Scenario)
+		}
+	}
 	if len(rows) != 21 {
 		return fmt.Errorf("reports require all seven scenarios and three strategies")
 	}

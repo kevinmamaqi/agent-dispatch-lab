@@ -138,3 +138,12 @@ func (m *Memory) Count(s workload.Step) int {
 	}
 	return m.Effects[s.Key()]
 }
+
+// Prepare persists pending before the scheduler publishes a new logical step.
+func (m *Memory) Prepare(s workload.Step) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.records[s.Key()]; !ok {
+		m.records[s.Key()] = Record{Step: s, Owner: -1}
+	}
+}

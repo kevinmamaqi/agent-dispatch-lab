@@ -27,7 +27,6 @@ var ErrProvider = errors.New("retryable provider error")
 type Work struct {
 	Step     workload.Step
 	Finished bool
-	Cancel   func()
 	Retry    func(time.Duration)
 }
 type Runtime struct {

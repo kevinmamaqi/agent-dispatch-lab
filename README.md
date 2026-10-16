@@ -11,11 +11,11 @@ Under combined crashes, duplicate deliveries, hangs, errors and a drain, at-leas
 
 ## Why this matters for agents
 
-An agent run is a workflow, not one model request. Planning, tool execution and synthesis have different dependencies. Billing is another side effect, with its own uncertain acknowledgement.
+An agent run is a workflow: planning, tools, synthesis and billing have different dependencies and uncertain acknowledgements.
 
-Every step is a place to lose work or repeat an effect. Retrying an error is useful; retrying a write that succeeded before its reply disappeared can charge twice.
+Every step can lose work or repeat an effect. Retrying an error helps; retrying a successful write whose reply disappeared can charge twice.
 
-Model calls also cost something when their results go unused. Completion, effect correctness and wasted computation need separate counters. This lab measures all three rather than treating a successful HTTP response as the whole outcome.
+Model calls cost something even when their results go unused. Completion, correct effects and wasted computation need separate counters; this lab measures all three.
 
 ## The workload
 
@@ -25,7 +25,7 @@ plan → [tool_call × N] → synthesize → bill       N = 3–6
 pending → claimed → provider_called → effect_written → committed
 ```
 
-Each tool appends a row; billing appends one charge per run. Stable keys are `run_id/step_id`. All runs arrive at virtual time zero and share 16 workers. Provider latency is seeded log-normal, median approximately 300 ms, capped at 1.8 s so baseline timeouts are not hidden faults. Explicit hangs time out at 2 s.
+Tools append rows; billing appends charges. Stable keys are `run_id/step_id`. Runs arrive together and share 16 workers. Seeded log-normal latency has median approximately 300 ms, capped at 1.8 s to keep baseline fault-free. Injected hangs time out at 2 s.
 
 ## The three strategies
 
@@ -117,9 +117,9 @@ make lint
 go test ./...
 ```
 
-Flags: `-runs` (1000), `-seed` (42), `-workers` (16), `-scenario`, `-strategy`, `-v`. `go run ./cmd/lab report` also accepts runs/seed/workers; reports require the full scenario matrix. The command refreshes JSON, both SVGs, Markdown and this README’s measured blocks. CI regenerates them and rejects drift.
+Flags: `-runs` (1000), `-seed` (42), `-workers` (16), `-scenario`, `-strategy`, `-v`. Report mode accepts runs/seed/workers and requires the full matrix. It refreshes JSON, both SVGs, Markdown and README measurements. CI rejects regeneration drift.
 
-Verbose evidence records every extra write, double charge, abandoned step and lost run, alongside fault events. `steps_duplicated_effect` counts writes beyond the first, not just affected keys. `runs_double_billed` counts affected run IDs. Unused provider calls include errors and ignored duplicate results; billing writes are excluded from that cost denominator.
+Verbose output records violations and fault events. Duplicate effects count extra writes; double billing counts affected runs. Wasted calls include errors and ignored duplicate results; billing writes are excluded from provider-call cost.
 
 ## Limitations
 
