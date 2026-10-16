@@ -52,7 +52,7 @@ During drain, claims stop; work has 150 ms to finish. Unfinished idempotent work
 | `provider-error` | Retryable error without an effect | Overload or transient failure |
 | `drain` | One rolling-deploy deadline | Lost work without handback |
 
-Rates apply to attempts; duplicate injection applies to logical enqueue. Decisions are keyed by seed, step and attempt rather than a shared RNG stream. Drain uses half the fault-free batch time, fixed across strategies. The scenario definitions are in [`scenarios.go`](internal/sim/scenarios.go).
+Faults use keyed seed/step/attempt draws. Duplicates apply on enqueue. Drain occurs at half the fault-free batch time, fixed across strategies. See [`scenarios.go`](internal/sim/scenarios.go).
 
 ## Results
 
