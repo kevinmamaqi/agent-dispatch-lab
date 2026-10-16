@@ -16,7 +16,15 @@ func MechanismSVG(dark bool) string {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" role="img" aria-labelledby="title desc"><title id="title">The write succeeded. The acknowledgement did not.</title><desc id="desc">One tool step, three strategies. A worker crashes after writing an effect but before recording completion. Naive loses progress despite the existing effect. Retry redelivers and writes twice. Exactly-once grants a new version, rejects a stale duplicate claim, reuses the cached result, deduplicates the write and commits. This is an illustrative ten-second loop, with a static final frame for reduced motion.</desc><style>.still{display:none}@media(prefers-reduced-motion:reduce){.motion{display:none}.still{display:inline}}</style><rect width="900" height="560" fill="%s"/><g fill="%s" font-family="system-ui,sans-serif">`, bg, fg)
-	b.WriteString(`<text x="24" y="34" font-size="24" font-weight="650">The write succeeded. The acknowledgement didn’t.</text>`)
+	// Messages travel through the links and disappear inside a processing node,
+	// so moving tokens never cover the node's state label.
+	b.WriteString(`<defs><clipPath id="links">`)
+	for i := 0; i < 3; i++ {
+		for j, x := range []int{314, 486, 646} {
+			fmt.Fprintf(&b, `<rect x="%d" y="%d" width="%d" height="48"/>`, x, 120+i*132, []int{66, 54, 70}[j])
+		}
+	}
+	b.WriteString(`</clipPath></defs><text x="24" y="34" font-size="24" font-weight="650">The write succeeded. The acknowledgement didn’t.</text>`)
 	fmt.Fprintf(&b, `<text x="24" y="61" font-size="15" fill="%s">One tool step · crash after effect, before completion is logged · same key on redelivery</text>`, muted)
 	for i, label := range []string{"Queue", "Worker", "Provider", "Ledger"} {
 		fmt.Fprintf(&b, `<text x="%d" y="99" text-anchor="middle" font-size="16" font-weight="600">%s</text>`, []int{271, 433, 593, 785}[i], label)
@@ -109,7 +117,7 @@ func MechanismSVG(dark bool) string {
 				if n == 2 {
 					points = "0;0;1;1"
 				}
-				fmt.Fprintf(&b, `<circle r="5" fill="%s"><animateMotion dur="10s" repeatCount="indefinite" calcMode="linear" keyTimes="%s" keyPoints="%s" path="M 271 %d H 785"/></circle>`, color, times, points, y)
+				fmt.Fprintf(&b, `<g clip-path="url(#links)"><circle r="5" fill="%s"><animateMotion dur="10s" repeatCount="indefinite" calcMode="linear" keyTimes="%s" keyPoints="%s" path="M 271 %d H 785"/></circle></g>`, color, times, points, y)
 				if n == 2 && i == 2 {
 					fmt.Fprintf(&b, `<circle r="5" fill="%s" stroke="%s" stroke-width="2"><animateMotion dur="10s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.48;0.56;1" keyPoints="0;0;1;1" path="M 271 %d H 433"/></circle>`, bg, accent, y-32)
 				}
