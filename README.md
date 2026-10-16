@@ -6,16 +6,18 @@ Under combined crashes, duplicate deliveries, hangs, errors and a drain, at-leas
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="report/results-dark.svg">
-  <img src="report/results.svg" width="900" height="420" alt="Seven scenarios compare lost runs, extra tool effects, double billing and drain abandonment. Each bar is labelled by strategy and count; exactly-once has zero violations.">
+  <img src="report/results.svg" width="900" alt="Storm comparison: three strategies, nine bars. Lost runs, extra tool writes and double-billed runs share one count scale. Completion appears beside each strategy; exactly-once has zero violations.">
 </picture>
+
+Retries can recover progress while repeating effects. The keyed strategy keeps completion and uniqueness together.
 
 ## Why this matters for agents
 
-An agent run is a workflow: planning, tools, synthesis and billing have different dependencies and uncertain acknowledgements.
+An agent run often plans, calls several tools, synthesizes the results and bills for the work. These steps cross different failure boundaries. A successful model response does not prove that the tool's side effect was committed, or that the runtime recorded it before its worker died.
 
-Every step can lose work or repeat an effect. Retrying an error helps; retrying a successful write whose reply disappeared can charge twice.
+Consider a tool that charges a card. The charge succeeds, then the worker crashes before acknowledging the step. Dropping it leaves the run unfinished; retrying without a stable key can charge twice. Both outcomes can hide behind reassuring request-success metrics.
 
-Model calls cost something even when their results go unused. Completion, correct effects and wasted computation need separate counters; this lab measures all three.
+Model calls add another cost: retries consume compute even when their results are discarded. This lab separates completion, durable effects and unused provider calls, then injects failures at the boundaries where those numbers diverge.
 
 ## The workload
 
@@ -42,6 +44,13 @@ Tools append rows; billing appends charges. Stable keys are `run_id/step_id`. Ru
 
 During drain, claims stop; work has 150 ms to finish. Unfinished idempotent work is fenced and handed back. The replacement pool reuses the log.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="report/mechanism-dark.svg">
+  <img src="report/mechanism.svg" width="900" alt="Ten-second recovery illustration. After a write and worker crash, naive loses progress, retry writes twice, and a versioned owner reuses the cached result and commits one keyed effect. A stale receipt is fenced. Reduced motion shows the final state.">
+</picture>
+
+Effect written, acknowledgement lost. The exact lane illustrates the `provider_called` recovery window: v1 reuses the cache and deduplicates the write; v0 is fenced. This is an illustration, not a recorded simulation trace; the [recovery test](internal/strategy/exactly_once_test.go) exercises that window.
+
 ## Failure modes
 
 | Injector | Decision | Operational analogue |
@@ -56,32 +65,39 @@ Faults use keyed seed/step/attempt draws. Duplicates apply on enqueue. Drain occ
 
 ## Results
 
-<!-- results:start -->
-Runs per cell: 1000 · seed: 42 · workers: 16. Latency includes queue wait; percentiles cover billed runs.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="report/results-grid-dark.svg">
+  <img src="report/results-grid.svg" width="900" alt="Full matrix: seven scenarios and four invariants for all three strategies. Exactly-once has zero lost runs, duplicate effects, double billing and drain abandonment in every scenario.">
+</picture>
 
-| Scenario | Strategy | Completed | Lost | Duplicate effects | Double-billed | Wasted / provider calls | Drain abandoned | p50 | p99 |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| baseline | naive | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 | 159.48s | 170.69s |
-| baseline | at-least-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 | 159.48s | 170.69s |
-| baseline | exactly-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 | 159.48s | 170.69s |
-| crash-5 | naive | 70.3% | 297 | 0 | 0 | 293 / 5997 | 0 | 145.18s | 153.15s |
-| crash-5 | at-least-once | 100.0% | 0 | 106 | 17 | 328 / 6733 | 0 | 162.60s | 177.14s |
-| crash-5 | exactly-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 | 156.39s | 168.57s |
-| dup-5 | naive | 100.0% | 0 | 234 | 39 | 325 / 6730 | 0 | 166.95s | 178.58s |
-| dup-5 | at-least-once | 100.0% | 0 | 234 | 39 | 325 / 6730 | 0 | 166.95s | 178.58s |
-| dup-5 | exactly-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 | 159.48s | 170.69s |
-| hang-5 | naive | 70.6% | 294 | 0 | 0 | 293 / 5975 | 0 | 177.88s | 186.93s |
-| hang-5 | at-least-once | 100.0% | 0 | 118 | 24 | 337 / 6742 | 0 | 201.60s | 219.38s |
-| hang-5 | exactly-once | 100.0% | 0 | 0 | 0 | 163 / 6568 | 0 | 197.21s | 213.37s |
-| error-10 | naive | 45.7% | 543 | 0 | 0 | 568 / 5560 | 0 | 135.22s | 140.43s |
-| error-10 | at-least-once | 100.0% | 0 | 0 | 0 | 737 / 7142 | 0 | 173.89s | 190.01s |
-| error-10 | exactly-once | 100.0% | 0 | 0 | 0 | 737 / 7142 | 0 | 173.89s | 190.01s |
-| drain | naive | 99.4% | 6 | 0 | 0 | 12 / 6399 | 12 | 159.15s | 170.19s |
-| drain | at-least-once | 100.0% | 0 | 0 | 0 | 12 / 6417 | 0 | 159.45s | 170.73s |
-| drain | exactly-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 | 159.21s | 170.50s |
-| storm | naive | 44.8% | 552 | 117 | 8 | 759 / 5707 | 10 | 154.30s | 159.98s |
-| storm | at-least-once | 100.0% | 0 | 284 | 49 | 984 / 7389 | 0 | 202.82s | 220.95s |
-| storm | exactly-once | 100.0% | 0 | 0 | 0 | 448 / 6853 | 0 | 189.83s | 205.20s |
+The full matrix: four invariants, seven scenarios. Each column uses a shared scale; a tick and a zero mean zero.
+
+<!-- results:start -->
+Runs per cell: 1000 · seed: 42 · workers: 16. Counts describe effects and completion; see the README’s cost discussion for batch timing.
+
+| Scenario | Strategy | Completed | Lost | Duplicate effects | Double-billed | Wasted / provider calls | Drain abandoned |
+|---|---|---:|---:|---:|---:|---:|---:|
+| baseline | naive | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 |
+| baseline | at-least-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 |
+| baseline | exactly-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 |
+| crash-5 | naive | 70.3% | 297 | 0 | 0 | 293 / 5997 | 0 |
+| crash-5 | at-least-once | 100.0% | 0 | 106 | 17 | 328 / 6733 | 0 |
+| crash-5 | exactly-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 |
+| dup-5 | naive | 100.0% | 0 | 234 | 39 | 325 / 6730 | 0 |
+| dup-5 | at-least-once | 100.0% | 0 | 234 | 39 | 325 / 6730 | 0 |
+| dup-5 | exactly-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 |
+| hang-5 | naive | 70.6% | 294 | 0 | 0 | 293 / 5975 | 0 |
+| hang-5 | at-least-once | 100.0% | 0 | 118 | 24 | 337 / 6742 | 0 |
+| hang-5 | exactly-once | 100.0% | 0 | 0 | 0 | 163 / 6568 | 0 |
+| error-10 | naive | 45.7% | 543 | 0 | 0 | 568 / 5560 | 0 |
+| error-10 | at-least-once | 100.0% | 0 | 0 | 0 | 737 / 7142 | 0 |
+| error-10 | exactly-once | 100.0% | 0 | 0 | 0 | 737 / 7142 | 0 |
+| drain | naive | 99.4% | 6 | 0 | 0 | 12 / 6399 | 12 |
+| drain | at-least-once | 100.0% | 0 | 0 | 0 | 12 / 6417 | 0 |
+| drain | exactly-once | 100.0% | 0 | 0 | 0 | 0 / 6405 | 0 |
+| storm | naive | 44.8% | 552 | 117 | 8 | 759 / 5707 | 10 |
+| storm | at-least-once | 100.0% | 0 | 284 | 49 | 984 / 7389 | 0 |
+| storm | exactly-once | 100.0% | 0 | 0 | 0 | 448 / 6853 | 0 |
 
 <!-- results:end -->
 
@@ -98,7 +114,9 @@ In `storm`, retry writes 284 extra tool effects; exactly-once writes zero extra 
 ## What exactly-once costs
 
 <!-- cost:start -->
-In `storm`, exactly-once makes 6853 provider calls; 448 (6.5%) have unused results. Retry makes 7389 calls with 984 unused results. Exactly-once p50/p99 are 189.83s/205.20s, versus retry’s 202.82s/220.95s. These include batch queue wait, not just provider time. This waste includes failed and interrupted calls, not only an idempotency surcharge. Cached recovery can avoid a second call; an unavailable result can still require new computation.
+In `storm`, exactly-once makes 6853 provider calls; 448 (6.5%) have unused results. Retry makes 7389 calls with 984 unused results. This waste includes failed and interrupted calls, not only an idempotency surcharge. Cached recovery can avoid a second call; an unavailable result can still require new computation.
+
+The whole 1000-run storm batch takes 206.63s of virtual time with exactly-once, versus 221.78s with retry, using 16 workers. This is batch makespan through the last scheduled event, including late provider completions; it is not individual run latency or wall time. `results.json` retains `batch_latency_ms` and the queue-inclusive `p50_run_latency_ms` / `p99_run_latency_ms` for billed runs. Those percentiles measure time since the entire batch arrived, not provider response time.
 <!-- cost:end -->
 
 A result cache cannot recover an indefinitely hung computation. Recovery reuses a completed result when available; otherwise a fresh physical attempt may be needed. The guarantee is one **effect**, not one provider invocation. The eight-concurrent-dispatch test proves one call and one commit when the original owner stays healthy.
@@ -117,7 +135,7 @@ make lint
 go test ./...
 ```
 
-Flags: `-runs` (1000), `-seed` (42), `-workers` (16), `-scenario`, `-strategy`, `-v`. Report mode accepts runs/seed/workers and requires the full matrix. It refreshes JSON, both SVGs, Markdown and README measurements. CI rejects regeneration drift.
+Flags: `-runs` (1000), `-seed` (42), `-workers` (16), `-scenario`, `-strategy`, `-v`. Report mode accepts runs/seed/workers and requires the full matrix. It refreshes JSON, Markdown, README measurements, and light/dark versions of the storm chart, full grid and mechanism animation. CI rejects regeneration drift.
 
 Verbose output records violations and fault events. Duplicate effects count extra writes; double billing counts affected runs. Wasted calls include errors and ignored duplicate results; billing writes are excluded from provider-call cost.
 
