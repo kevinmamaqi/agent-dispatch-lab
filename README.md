@@ -6,7 +6,7 @@ Under combined crashes, duplicate deliveries, hangs, errors and a drain, at-leas
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="report/results-dark.svg">
-  <img src="report/results.svg" width="900" height="420" alt="Storm comparison: three strategies, nine bars. Lost runs, extra tool writes and double-billed runs share one count scale. Completion appears beside each strategy; exactly-once has zero violations.">
+  <img src="report/results.svg" width="900" alt="Storm comparison: three strategies, nine bars. Lost runs, extra tool writes and double-billed runs share one count scale. Completion appears beside each strategy; exactly-once has zero violations.">
 </picture>
 
 Retries can recover progress while repeating effects. The keyed strategy keeps completion and uniqueness together.
@@ -46,7 +46,7 @@ During drain, claims stop; work has 150 ms to finish. Unfinished idempotent work
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="report/mechanism-dark.svg">
-  <img src="report/mechanism.svg" width="900" height="560" alt="Ten-second recovery illustration. After a write and worker crash, naive loses progress, retry writes twice, and a versioned owner reuses the cached result and commits one keyed effect. A stale receipt is fenced. Reduced motion shows the final state.">
+  <img src="report/mechanism.svg" width="900" alt="Ten-second recovery illustration. After a write and worker crash, naive loses progress, retry writes twice, and a versioned owner reuses the cached result and commits one keyed effect. A stale receipt is fenced. Reduced motion shows the final state.">
 </picture>
 
 Effect written, acknowledgement lost. The exact lane illustrates the `provider_called` recovery window: v1 reuses the cache and deduplicates the write; v0 is fenced. This is an illustration, not a recorded simulation trace; the [recovery test](internal/strategy/exactly_once_test.go) exercises that window.
@@ -67,7 +67,7 @@ Faults use keyed seed/step/attempt draws. Duplicates apply on enqueue. Drain occ
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="report/results-grid-dark.svg">
-  <img src="report/results-grid.svg" width="900" height="420" alt="Full matrix: seven scenarios and four invariants for all three strategies. Exactly-once has zero lost runs, duplicate effects, double billing and drain abandonment in every scenario.">
+  <img src="report/results-grid.svg" width="900" alt="Full matrix: seven scenarios and four invariants for all three strategies. Exactly-once has zero lost runs, duplicate effects, double billing and drain abandonment in every scenario.">
 </picture>
 
 The full matrix: four invariants, seven scenarios. Each column uses a shared scale; a tick and a zero mean zero.
