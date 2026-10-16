@@ -40,7 +40,7 @@ func run(args []string) error {
 		if err := report.Write("report", rows); err != nil {
 			return err
 		}
-		fmt.Println("Wrote report/results.{md,json,svg} and results-dark.svg; refreshed README measured blocks.")
+		fmt.Println("Wrote report tables, JSON, storm/grid charts and mechanism SVGs (light + dark); refreshed README measured blocks.")
 	}
 	report.Terminal(os.Stdout, rows)
 	if *verbose {

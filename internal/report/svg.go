@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-// SVG is deliberately a small writer, not a charting dependency. Each column
+// GridSVG is deliberately a small writer, not a charting dependency. Each column
 // shares one scale across scenarios; numeric labels preserve absolute counts.
-func SVG(rows []sim.Result, dark bool) string {
+func GridSVG(rows []sim.Result, dark bool) string {
 	bg, fg, line := "#faf9f6", "#242424", "#dedbd4"
 	colors := []string{"#777777", "#343434", "#166294"}
 	if dark {
